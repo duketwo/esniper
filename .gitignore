@@ -26,3 +26,11 @@ _$*
 *.ln
 core
 # CVS default ignores end
+Makefile
+*.cache
+esniper
+config.status
+.deps
+.cdtproject
+.project
+.settings
