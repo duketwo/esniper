@@ -426,14 +426,6 @@ headerVal_t headerVals[] = {"regUrl", 1, 1, NULL,
                            "usid", 1, 1, NULL,
                            "runId2", 1, 1, NULL};
 
-void signinFormError(headerAttr_t* searchdef, searchType_t searchfor)
-{
-	printf("Error in function %s(): %s not found!\nPlease report at https://sourceforge.net/p/esniper/bugs/705/\n",
-				(searchfor == st_attribute ? "findattr" : "searchvalue"), searchdef->name);
-	// Abort
-	abort();
-}
-
 int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor)
 {
 	char* start = src;
@@ -538,11 +530,13 @@ ebayLogin(auctionInfo *aip, time_t interval)
 
 	// Get all atrributes and values needed (MSP Oct. 2016)
 	for(i = 0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); i++)
-		if(findattr(mp->readptr, mp->size, &headerAttrs[i]))
-			signinFormError(&headerAttrs[i], st_attribute);
+		if(findattr(mp->memory, mp->size, &headerAttrs[i]))
+			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
+				"findattr cannot find %s", headerAttrs[i].name);
 	for(i = 0; i < sizeof(headerVals)/sizeof(headerVal_t); i++)
-		if(getvals(mp->readptr, mp->size, &headerVals[i]))
-			signinFormError(&headerVals[i], st_value); 
+		if(getvals(mp->memory, mp->size, &headerVals[i]))
+			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
+				"getvals cannot find %s", headerVals[i].name);
 
 	freeMembuf(mp);
 	mp = NULL;
