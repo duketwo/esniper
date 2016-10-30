@@ -27,6 +27,7 @@
 /* for strcasestr  prototype in string.h */
 #define _GNU_SOURCE
 
+#include "util.h"
 #include "auction.h"
 #include "buffer.h"
 #include "http.h"
@@ -377,12 +378,9 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 
 	if ((found & TOKEN_FOUND_ALL) != TOKEN_FOUND_ALL) {
 		pageInfo_t *pageInfo = getPageInfo(mp);
-		if(pageInfo != NULL) {
-			ret = makeBidError(pageInfo, aip);
-		} else {
-			log(("parsePreBid(): pageinfo is NULL\n"));
-		}
-		if ((pageInfo == NULL) || (ret < 0)) {
+
+		ret = makeBidError(pageInfo, aip);
+		if (ret < 0) {
 			ret = auctionError(aip, ae_bidtokens, NULL);
 			bugReport("preBid", __FILE__, __LINE__, aip, mp, optiontab, "cannot find bid token (found=%d)", found);
 		}
@@ -391,9 +389,105 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 	return ret;
 }
 
+// MSP Oct. 2016
 static const char LOGIN_1_URL[] = "https://%s/ws/eBayISAPI.dll?SignIn";
-static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?SignInWelcome&userid=%s&pass=%s&keepMeSignInOption=1";
+static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?co_partnerId=2&siteid=0&UsingSSL=1";
+static const char LOGIN_DATA[] = "refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1";
 
+// MSP Oct. 2016
+const char* pszId="id=\"";
+const char* pszId2="value=\"";
+
+typedef struct _headerattr
+{
+  char* pszName;
+  int   iOccurence;
+  int   iDirection;
+  char* pszValue;
+} HEADERATTR, HEADERVALS;
+
+const int USER_NUM=0;
+const int PASS_NUM=1;
+
+const int REGURL=0;
+const int MID=1;
+const int SRT=2;
+const int USID=3;
+const int RUNID2=4;
+
+typedef enum searchtype { searchAttribute, searchValue } SEARCHTYPE;
+
+HEADERATTR headerattrs[] = {"<label for=\"userid\">", 1, 1, NULL,
+                            "\"password\"", 1, -1, NULL};
+
+HEADERVALS headervals[] = {"regUrl", 1, 1, NULL,
+                           "mid", 1, 1, NULL,
+                           "srt", 1, 1, NULL,
+                           "usid", 1, 1, NULL,
+                           "runId2", 1, 1, NULL};
+
+void signinFormError(HEADERATTR* searchdef, SEARCHTYPE searchfor)
+{
+	printf("Error in function %s(): %s not found!\nPlease report at https://sourceforge.net/p/esniper/bugs/705/\n",
+				(searchfor == searchAttribute ? "findattr" : "searchvalue"), searchdef->pszName);
+	// Abort
+	abort();
+}
+
+int signinFormSearch(char* pSrc, size_t SrcLen, HEADERATTR* searchdef, SEARCHTYPE searchfor)
+{
+	char* pszStart = pSrc;
+	char* pszEnd = pSrc+SrcLen;
+	char* pszSearch = NULL;
+	char szPattern[128];
+	char szRes[4096];
+	int  i;
+
+	if( searchfor == searchAttribute )
+		strcpy(szPattern, searchdef->pszName);
+	else
+		sprintf(szPattern, "name=\"%s\"", searchdef->pszName);
+
+	for(i=0; i < searchdef->iOccurence; i++)
+	{
+		pszSearch = strstr(pszStart, szPattern);
+		if( pszSearch == NULL ) return 1;
+		pszStart=pszSearch;
+		pszStart+=strlen(szPattern);
+	}
+
+	while( pSrc != pszSearch && pszEnd != pszSearch )
+	{
+                pszSearch+=(searchdef->iDirection);
+
+		if( !strncmp(pszSearch, (searchfor == searchAttribute ? pszId : pszId2), 
+                                        (searchfor == searchAttribute ? strlen(pszId) : strlen(pszId2))) )
+		{
+		    pszSearch+=((searchfor == searchAttribute ? strlen(pszId) : strlen(pszId2)));
+                    memset(szRes, '\0', sizeof(szRes));
+		    for(i=0;
+                        ((searchfor == searchValue) || isdigit(*pszSearch)) && ((char)*pszSearch) != '"' && i<sizeof(szRes);
+                        szRes[i++]=*pszSearch++);
+		    searchdef->pszValue = (char *)myMalloc(strlen(szRes)+1);
+		    strncpy(searchdef->pszValue, (char*) &szRes, strlen(szRes)+1);
+		    if (options.debug) dlog("%s(): %s=%s", (searchfor == searchAttribute ? "findattr" : "searchvalue"), 
+                                                           searchdef->pszName, searchdef->pszValue);
+		    return 0;
+		}
+	}
+
+	return 1;
+}
+
+int findattr(char* pSrc, size_t SrcLen, HEADERATTR* attr)
+{
+	return signinFormSearch(pSrc, SrcLen, attr, searchAttribute);
+}
+
+int getvals(char* pSrc, size_t SrcLen, HEADERVALS* vals)
+{
+	return signinFormSearch(pSrc, SrcLen, vals, searchValue);
+}
 
 /*
  * Force an ebay login.
@@ -417,10 +511,11 @@ ebayLogin(auctionInfo *aip, time_t interval)
 {
 	memBuf_t *mp = NULL;
 	size_t urlLen;
-	char *url, *logUrl;
+	char *url, *data, *logdata;
 	pageInfo_t *pp;
 	int ret = 0;
 	char *password;
+	int i;	
 
 	/* negative value forces login */
 	if (loginTime > 0) {
@@ -441,21 +536,79 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	free(url);
 	if (!mp)
 		return httpError(aip);
+
+	// Get all atrributes and values needed (MSP Oct. 2016)
+	for(i=0; i < sizeof(headerattrs)/sizeof(HEADERATTR); i++) if(findattr(mp->readptr, mp->size, &headerattrs[i])) signinFormError(&headerattrs[i], searchAttribute);
+	for(i=0; i < sizeof(headervals)/sizeof(HEADERVALS); i++) if(getvals(mp->readptr, mp->size, &headervals[i])) signinFormError(&headervals[i], searchValue); 
+
 	freeMembuf(mp);
 	mp = NULL;
 
-	urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) + strlen(options.usernameEscape) - (3*2);
+	// MSP Oct. 2016
+	urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) - (1*2);
 	password = getPassword();
-	url = (char *)myMalloc(urlLen + strlen(password));
-	logUrl = (char *)myMalloc(urlLen + 5);
-
-	sprintf(url, LOGIN_2_URL, options.loginHost, options.usernameEscape, password);
+	url = (char *)myMalloc(urlLen);
+	sprintf(url, LOGIN_2_URL, options.loginHost);
+	data = (char *)myMalloc(	sizeof(LOGIN_DATA)
+                                      + strlen(headerattrs[USER_NUM].pszValue)
+                                      + strlen(headerattrs[PASS_NUM].pszValue)
+                                      + strlen(options.usernameEscape) * 2
+                                      + strlen(password) * 2
+                                      + strlen(headervals[REGURL].pszValue)
+                                      + strlen(headervals[MID].pszValue)
+                                      + strlen(headervals[SRT].pszValue)
+                                      + strlen(headervals[USID].pszValue)
+                                      + strlen(headervals[RUNID2].pszValue)
+				      - (11*2)
+                                      );
+	logdata = (char *)myMalloc(	sizeof(LOGIN_DATA)
+                                      + strlen(headerattrs[USER_NUM].pszValue)
+                                      + strlen(headerattrs[PASS_NUM].pszValue) 
+                                      + strlen(options.usernameEscape) * 2
+                                      + 5 * 2
+                                      + strlen(headervals[REGURL].pszValue)
+                                      + strlen(headervals[MID].pszValue)
+                                      + strlen(headervals[SRT].pszValue)
+                                      + strlen(headervals[USID].pszValue)
+                                      + strlen(headervals[RUNID2].pszValue)
+				      - (11*2)
+                                      );
+	sprintf(data, LOGIN_DATA,	headervals[REGURL].pszValue,
+					headervals[MID].pszValue,
+					headervals[SRT].pszValue,
+					headervals[USID].pszValue,
+					options.usernameEscape,
+					headerattrs[USER_NUM].pszValue,
+					options.usernameEscape,
+					headervals[RUNID2].pszValue,
+                                        headerattrs[PASS_NUM].pszValue,
+					password,
+					password
+					);
 	freePassword(password);
-	sprintf(logUrl, LOGIN_2_URL, options.loginHost, options.usernameEscape, "*****");
+	sprintf(logdata, LOGIN_DATA,	headervals[REGURL].pszValue,
+					headervals[MID].pszValue,
+					headervals[SRT].pszValue,
+					headervals[USID].pszValue,
+					options.usernameEscape,
+					headerattrs[USER_NUM].pszValue,
+					options.usernameEscape,
+					headervals[RUNID2].pszValue,
+                                        headerattrs[PASS_NUM].pszValue,
+					"*****",
+					"*****"
+					);
 
-	mp = httpGet(url, logUrl);
+	// MSP Oct. 2016 - Using POST method instead of GET
+	mp = httpPost(url, data, logdata);
+
+	// Free memory (MSP Oct. 2016)
+	for(i=0; i < sizeof(headerattrs)/sizeof(HEADERATTR); free(headerattrs[i++].pszValue));
+	for(i=0; i < sizeof(headervals)/sizeof(HEADERVALS); free(headervals[i++].pszValue));
 	free(url);
-	free(logUrl);
+	free(data);
+	free(logdata);
+
 	if (!mp)
 		return httpError(aip);
 
@@ -630,11 +783,9 @@ parseBid(memBuf_t *mp, auctionInfo *aip)
 	int ret;
 
 	aip->bidResult = -1;
-	log(("parseBid(): pagename = %s\n",
-		pageInfo ? pageInfo->pageName : "(null)"));
-	if ((pageInfo != NULL) &&
-	    ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
-	     (ret = makeBidError(pageInfo, aip)) >= 0)) {
+	log(("parseBid(): pagename = %s\n", pageInfo->pageName));
+	if ((ret = acceptBid(pageInfo->pageName, aip)) >= 0 ||
+	    (ret = makeBidError(pageInfo, aip)) >= 0) {
 		;
 	} else {
 		bugReport("parseBid", __FILE__, __LINE__, aip, mp, optiontab, "unknown pagename");
