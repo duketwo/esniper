@@ -56,22 +56,35 @@
 
 #define TOKEN_FOUND_ALL (TOKEN_FOUND_UIID | TOKEN_FOUND_STOK | TOKEN_FOUND_SRT)
 
+typedef struct _headerattr
+{
+  char* name;
+  int   occurence;
+  int   direction;
+  char* value;
+} headerAttr_t, headerVal_t;
+
+typedef enum searchType { st_attribute, st_value } searchType_t;
+
 static time_t loginTime = 0;	/* Time of last login */
 static time_t defaultLoginInterval = 12 * 60 * 60;	/* ebay login interval */
 
 static int acceptBid(const char *pagename, auctionInfo *aip);
 static int bid(auctionInfo *aip);
 static int ebayLogin(auctionInfo *aip, time_t interval);
+static int findAttr(char* src, size_t srcLen, headerAttr_t* attr);
 static int forceEbayLogin(auctionInfo *aip);
 static char *getIdInternal(char *s, size_t len);
 static int getInfoTiming(auctionInfo *aip, time_t *timeToFirstByte);
 static int getQuantity(int want, int available);
+static int getVals(char* src, size_t srcLen, headerVal_t* vals);
 static int makeBidError(const pageInfo_t *pageInfo, auctionInfo *aip);
 static int match(memBuf_t *mp, const char *str);
 static int parseBid(memBuf_t *mp, auctionInfo *aip);
 static int preBid(auctionInfo *aip);
 static int parsePreBid(memBuf_t *mp, auctionInfo *aip);
 static int printMyItemsRow(char **row, int printNewline);
+static int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor);
 static int watch(auctionInfo *aip);
 
 /*
@@ -395,38 +408,29 @@ static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?co_partnerId=2&si
 static const char LOGIN_DATA[] = "refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1";
 
 // MSP Oct. 2016
-const char* id="id=\"";
-const char* id2="value=\"";
+static const char* id="id=\"";
+static const char* id2="value=\"";
 
-typedef struct _headerattr
-{
-  char* name;
-  int   occurence;
-  int   direction;
-  char* value;
-} headerAttr_t, headerVal_t;
+static const int USER_NUM=0;
+static const int PASS_NUM=1;
 
-const int USER_NUM=0;
-const int PASS_NUM=1;
+static const int REGURL=0;
+static const int MID=1;
+static const int SRT=2;
+static const int USID=3;
+static const int RUNID2=4;
 
-const int REGURL=0;
-const int MID=1;
-const int SRT=2;
-const int USID=3;
-const int RUNID2=4;
-
-typedef enum searchType { st_attribute, st_value } searchType_t;
-
-headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, NULL,
+static headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, NULL,
                             "\"password\"", 1, -1, NULL};
 
-headerVal_t headerVals[] = {"regUrl", 1, 1, NULL,
+static headerVal_t headerVals[] = {"regUrl", 1, 1, NULL,
                            "mid", 1, 1, NULL,
                            "srt", 1, 1, NULL,
                            "usid", 1, 1, NULL,
                            "runId2", 1, 1, NULL};
 
-int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor)
+static int
+signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor)
 {
 	char* start = src;
 	char* end = src + srcLen;
@@ -461,7 +465,7 @@ int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchTy
 			searchdef->value = (char *)myMalloc(strlen(res) + 1);
 			strncpy(searchdef->value, (char*) &res, strlen(res) + 1);
 			if (options.debug)
-				dlog("%s(): %s=%s", (searchfor == st_attribute ? "findattr" : "searchvalue"), 
+				dlog("%s(): %s=%s", (searchfor == st_attribute ? "findAttr" : "searchvalue"), 
 					searchdef->name, searchdef->value);
 			return 0;
 		}
@@ -470,12 +474,14 @@ int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchTy
 	return 1;
 }
 
-int findattr(char* src, size_t srcLen, headerAttr_t* attr)
+static int
+findAttr(char* src, size_t srcLen, headerAttr_t* attr)
 {
 	return signinFormSearch(src, srcLen, attr, st_attribute);
 }
 
-int getvals(char* src, size_t srcLen, headerVal_t* vals)
+static int
+getVals(char* src, size_t srcLen, headerVal_t* vals)
 {
 	return signinFormSearch(src, srcLen, vals, st_value);
 }
@@ -530,13 +536,13 @@ ebayLogin(auctionInfo *aip, time_t interval)
 
 	// Get all atrributes and values needed (MSP Oct. 2016)
 	for(i = 0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); i++)
-		if(findattr(mp->memory, mp->size, &headerAttrs[i]))
+		if(findAttr(mp->memory, mp->size, &headerAttrs[i]))
 			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
-				"findattr cannot find %s", headerAttrs[i].name);
+				"findAttr cannot find %s", headerAttrs[i].name);
 	for(i = 0; i < sizeof(headerVals)/sizeof(headerVal_t); i++)
-		if(getvals(mp->memory, mp->size, &headerVals[i]))
+		if(getVals(mp->memory, mp->size, &headerVals[i]))
 			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
-				"getvals cannot find %s", headerVals[i].name);
+				"getVals cannot find %s", headerVals[i].name);
 
 	freeMembuf(mp);
 	mp = NULL;
