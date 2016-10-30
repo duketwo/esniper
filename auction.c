@@ -395,16 +395,16 @@ static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?co_partnerId=2&si
 static const char LOGIN_DATA[] = "refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1";
 
 // MSP Oct. 2016
-const char* pszId="id=\"";
-const char* pszId2="value=\"";
+const char* id="id=\"";
+const char* id2="value=\"";
 
 typedef struct _headerattr
 {
-  char* pszName;
-  int   iOccurence;
-  int   iDirection;
-  char* pszValue;
-} HEADERATTR, HEADERVALS;
+  char* name;
+  int   occurence;
+  int   direction;
+  char* value;
+} headerAttr_t, headerVal_t;
 
 const int USER_NUM=0;
 const int PASS_NUM=1;
@@ -415,78 +415,77 @@ const int SRT=2;
 const int USID=3;
 const int RUNID2=4;
 
-typedef enum searchtype { searchAttribute, searchValue } SEARCHTYPE;
+typedef enum searchType { st_attribute, st_value } searchType_t;
 
-HEADERATTR headerattrs[] = {"<label for=\"userid\">", 1, 1, NULL,
+headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, NULL,
                             "\"password\"", 1, -1, NULL};
 
-HEADERVALS headervals[] = {"regUrl", 1, 1, NULL,
+headerVal_t headerVals[] = {"regUrl", 1, 1, NULL,
                            "mid", 1, 1, NULL,
                            "srt", 1, 1, NULL,
                            "usid", 1, 1, NULL,
                            "runId2", 1, 1, NULL};
 
-void signinFormError(HEADERATTR* searchdef, SEARCHTYPE searchfor)
+void signinFormError(headerAttr_t* searchdef, searchType_t searchfor)
 {
 	printf("Error in function %s(): %s not found!\nPlease report at https://sourceforge.net/p/esniper/bugs/705/\n",
-				(searchfor == searchAttribute ? "findattr" : "searchvalue"), searchdef->pszName);
+				(searchfor == st_attribute ? "findattr" : "searchvalue"), searchdef->name);
 	// Abort
 	abort();
 }
 
-int signinFormSearch(char* pSrc, size_t SrcLen, HEADERATTR* searchdef, SEARCHTYPE searchfor)
+int signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor)
 {
-	char* pszStart = pSrc;
-	char* pszEnd = pSrc+SrcLen;
-	char* pszSearch = NULL;
-	char szPattern[128];
-	char szRes[4096];
+	char* start = src;
+	char* end = src + srcLen;
+	char* search = NULL;
+	char pattern[128];
+	char res[4096];
 	int  i;
 
-	if( searchfor == searchAttribute )
-		strcpy(szPattern, searchdef->pszName);
+	if(searchfor == st_attribute)
+		strcpy(pattern, searchdef->name);
 	else
-		sprintf(szPattern, "name=\"%s\"", searchdef->pszName);
+		sprintf(pattern, "name=\"%s\"", searchdef->name);
 
-	for(i=0; i < searchdef->iOccurence; i++)
-	{
-		pszSearch = strstr(pszStart, szPattern);
-		if( pszSearch == NULL ) return 1;
-		pszStart=pszSearch;
-		pszStart+=strlen(szPattern);
+	for(i = 0; i < searchdef->occurence; i++) {
+		search = strstr(start, pattern);
+		if( search == NULL )
+			return 1;
+		start = search;
+		start += strlen(pattern);
 	}
 
-	while( pSrc != pszSearch && pszEnd != pszSearch )
-	{
-                pszSearch+=(searchdef->iDirection);
+	while(src != search && end != search ) {
+                search += (searchdef->direction);
 
-		if( !strncmp(pszSearch, (searchfor == searchAttribute ? pszId : pszId2), 
-                                        (searchfor == searchAttribute ? strlen(pszId) : strlen(pszId2))) )
-		{
-		    pszSearch+=((searchfor == searchAttribute ? strlen(pszId) : strlen(pszId2)));
-                    memset(szRes, '\0', sizeof(szRes));
-		    for(i=0;
-                        ((searchfor == searchValue) || isdigit(*pszSearch)) && ((char)*pszSearch) != '"' && i<sizeof(szRes);
-                        szRes[i++]=*pszSearch++);
-		    searchdef->pszValue = (char *)myMalloc(strlen(szRes)+1);
-		    strncpy(searchdef->pszValue, (char*) &szRes, strlen(szRes)+1);
-		    if (options.debug) dlog("%s(): %s=%s", (searchfor == searchAttribute ? "findattr" : "searchvalue"), 
-                                                           searchdef->pszName, searchdef->pszValue);
-		    return 0;
+		if(!strncmp(search, (searchfor == st_attribute ? id : id2), 
+                                       (searchfor == st_attribute ? strlen(id) : strlen(id2))) ) {
+			search += (searchfor == st_attribute ? strlen(id) : strlen(id2));
+			memset(res, '\0', sizeof(res));
+			for(i = 0;
+				((searchfor == st_value) || isdigit(*search)) && (*search) != '"' && i < sizeof(res);
+				res[i++] = *search++);
+			searchdef->value = (char *)myMalloc(strlen(res) + 1);
+			strncpy(searchdef->value, (char*) &res, strlen(res) + 1);
+			if (options.debug)
+				dlog("%s(): %s=%s", (searchfor == st_attribute ? "findattr" : "searchvalue"), 
+					searchdef->name, searchdef->value);
+			return 0;
 		}
 	}
 
 	return 1;
 }
 
-int findattr(char* pSrc, size_t SrcLen, HEADERATTR* attr)
+int findattr(char* src, size_t srcLen, headerAttr_t* attr)
 {
-	return signinFormSearch(pSrc, SrcLen, attr, searchAttribute);
+	return signinFormSearch(src, srcLen, attr, st_attribute);
 }
 
-int getvals(char* pSrc, size_t SrcLen, HEADERVALS* vals)
+int getvals(char* src, size_t srcLen, headerVal_t* vals)
 {
-	return signinFormSearch(pSrc, SrcLen, vals, searchValue);
+	return signinFormSearch(src, srcLen, vals, st_value);
 }
 
 /*
@@ -538,8 +537,12 @@ ebayLogin(auctionInfo *aip, time_t interval)
 		return httpError(aip);
 
 	// Get all atrributes and values needed (MSP Oct. 2016)
-	for(i=0; i < sizeof(headerattrs)/sizeof(HEADERATTR); i++) if(findattr(mp->readptr, mp->size, &headerattrs[i])) signinFormError(&headerattrs[i], searchAttribute);
-	for(i=0; i < sizeof(headervals)/sizeof(HEADERVALS); i++) if(getvals(mp->readptr, mp->size, &headervals[i])) signinFormError(&headervals[i], searchValue); 
+	for(i = 0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); i++)
+		if(findattr(mp->readptr, mp->size, &headerAttrs[i]))
+			signinFormError(&headerAttrs[i], st_attribute);
+	for(i = 0; i < sizeof(headerVals)/sizeof(headerVal_t); i++)
+		if(getvals(mp->readptr, mp->size, &headerVals[i]))
+			signinFormError(&headerVals[i], st_value); 
 
 	freeMembuf(mp);
 	mp = NULL;
@@ -550,51 +553,51 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	url = (char *)myMalloc(urlLen);
 	sprintf(url, LOGIN_2_URL, options.loginHost);
 	data = (char *)myMalloc(	sizeof(LOGIN_DATA)
-                                      + strlen(headerattrs[USER_NUM].pszValue)
-                                      + strlen(headerattrs[PASS_NUM].pszValue)
+                                      + strlen(headerAttrs[USER_NUM].value)
+                                      + strlen(headerAttrs[PASS_NUM].value)
                                       + strlen(options.usernameEscape) * 2
                                       + strlen(password) * 2
-                                      + strlen(headervals[REGURL].pszValue)
-                                      + strlen(headervals[MID].pszValue)
-                                      + strlen(headervals[SRT].pszValue)
-                                      + strlen(headervals[USID].pszValue)
-                                      + strlen(headervals[RUNID2].pszValue)
+                                      + strlen(headerVals[REGURL].value)
+                                      + strlen(headerVals[MID].value)
+                                      + strlen(headerVals[SRT].value)
+                                      + strlen(headerVals[USID].value)
+                                      + strlen(headerVals[RUNID2].value)
 				      - (11*2)
                                       );
 	logdata = (char *)myMalloc(	sizeof(LOGIN_DATA)
-                                      + strlen(headerattrs[USER_NUM].pszValue)
-                                      + strlen(headerattrs[PASS_NUM].pszValue) 
+                                      + strlen(headerAttrs[USER_NUM].value)
+                                      + strlen(headerAttrs[PASS_NUM].value) 
                                       + strlen(options.usernameEscape) * 2
                                       + 5 * 2
-                                      + strlen(headervals[REGURL].pszValue)
-                                      + strlen(headervals[MID].pszValue)
-                                      + strlen(headervals[SRT].pszValue)
-                                      + strlen(headervals[USID].pszValue)
-                                      + strlen(headervals[RUNID2].pszValue)
+                                      + strlen(headerVals[REGURL].value)
+                                      + strlen(headerVals[MID].value)
+                                      + strlen(headerVals[SRT].value)
+                                      + strlen(headerVals[USID].value)
+                                      + strlen(headerVals[RUNID2].value)
 				      - (11*2)
                                       );
-	sprintf(data, LOGIN_DATA,	headervals[REGURL].pszValue,
-					headervals[MID].pszValue,
-					headervals[SRT].pszValue,
-					headervals[USID].pszValue,
+	sprintf(data, LOGIN_DATA,	headerVals[REGURL].value,
+					headerVals[MID].value,
+					headerVals[SRT].value,
+					headerVals[USID].value,
 					options.usernameEscape,
-					headerattrs[USER_NUM].pszValue,
+					headerAttrs[USER_NUM].value,
 					options.usernameEscape,
-					headervals[RUNID2].pszValue,
-                                        headerattrs[PASS_NUM].pszValue,
+					headerVals[RUNID2].value,
+                                        headerAttrs[PASS_NUM].value,
 					password,
 					password
 					);
 	freePassword(password);
-	sprintf(logdata, LOGIN_DATA,	headervals[REGURL].pszValue,
-					headervals[MID].pszValue,
-					headervals[SRT].pszValue,
-					headervals[USID].pszValue,
+	sprintf(logdata, LOGIN_DATA,	headerVals[REGURL].value,
+					headerVals[MID].value,
+					headerVals[SRT].value,
+					headerVals[USID].value,
 					options.usernameEscape,
-					headerattrs[USER_NUM].pszValue,
+					headerAttrs[USER_NUM].value,
 					options.usernameEscape,
-					headervals[RUNID2].pszValue,
-                                        headerattrs[PASS_NUM].pszValue,
+					headerVals[RUNID2].value,
+                                        headerAttrs[PASS_NUM].value,
 					"*****",
 					"*****"
 					);
@@ -603,8 +606,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	mp = httpPost(url, data, logdata);
 
 	// Free memory (MSP Oct. 2016)
-	for(i=0; i < sizeof(headerattrs)/sizeof(HEADERATTR); free(headerattrs[i++].pszValue));
-	for(i=0; i < sizeof(headervals)/sizeof(HEADERVALS); free(headervals[i++].pszValue));
+	for(i=0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); free(headerAttrs[i++].value));
+	for(i=0; i < sizeof(headerVals)/sizeof(headerVal_t); free(headerVals[i++].value));
 	free(url);
 	free(data);
 	free(logdata);
