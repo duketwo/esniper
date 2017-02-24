@@ -24,6 +24,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+/* ============== WORK IN PROGRESS - EXPERIMENTAL VERSION ============== */
+
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -100,16 +104,32 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	int auctionResult = 0;
 	int got;
 	const char *delim = "_";
-
-
+	typedef enum phtype { phclassic, ph201702, phunknown } phtype;
+	phtype pagetype = phunknown;
 
 	if ((pp->srcId && !strcmp(pp->srcId, "Captcha.xsl")) ||
 		(pp->pageName && !strncmp(pp->pageName, "Security Measure", 16)))
 		return auctionError(aip, ae_captcha, NULL);
+/* MSP Feb. 2017
 	if (pp->pageName && !strncmp(pp->pageName, "PageViewBids", 12)) {
+*/
+	if (pp->pageName && ( !strncmp(pp->pageName, "PageViewBids", 12) ||
+			      !strncmp(pp->pageName, "eBay Item Bid History", 21) )) {	
 		char *tmpPagename = myStrdup(pp->pageName);
 		char *token;
 
+/* MSP Feb. 2017 */
+		if (!strncmp(pp->pageName, "eBay Item Bid History", 21))
+			pagetype = ph201702;
+		else
+			pagetype = phclassic;
+		if (!debugMode) {
+			if (pagetype != phclassic)
+				printf("## Experimental ## Pagename: %s\n", pp->pageName);
+			else
+				printf("## Classic ## Pagename: %s\n", pp->pageName);
+		}
+/***/
 		pageType = VIEWBIDS;
 
 		/* this must be PageViewBids */
@@ -162,6 +182,17 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "no item number");
 			return auctionError(aip, ae_baditem, NULL);
 		}
+/* MSP Feb. 2017 */
+	} else if (memStr(mp, "<span>Item number:</span>")) { 
+                line = getNonTag(mp);   /* Item number: */
+                line = getNonTag(mp);   /* number */
+		if (!debugMode) printf("## Number: %s\n", line);
+		if (!line) {
+                        log(("parseBidHistory(): No item number"));
+                        bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "no item number");
+                        return auctionError(aip, ae_baditem, NULL);
+		}
+/***/
 	} else {
 		log(("parseBidHistory(): BHitemNo not found"));
 		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "no item number");
@@ -192,6 +223,27 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item title not found");
 			return auctionError(aip, ae_baditem, NULL);
 		}
+/* MSP Feb. 2017 */
+	/* Active auction */
+        } else if (memStr(mp, "<span>Item info</span>")) {
+                line = getNonTag(mp);   /* Item title: */
+                line = getNonTag(mp);   /* title */
+		if (!debugMode) printf("## Title: %s\n", line);
+                if (!line) {
+                        log(("parseBidHistory(): No item title"));
+                        bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item title not found");
+        	}
+	/* Post bid */
+        } else if (memStr(mp, "\"offer-title-top_panel_main\"")) {
+		memChr(mp, '>');
+		memSkip(mp, 1);
+                line = getNonTag(mp);   /* title */
+                if (!debugMode) printf("## Title: %s\n", line);
+                if (!line) {
+                        log(("parseBidHistory(): No item title"));
+                        bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item title not found");
+                }
+/***/
 	} else {
 		log(("parseBidHistory(): BHitemTitle not found"));
 		bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item title or description not found");
@@ -271,6 +323,47 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup("--");
 		aip->remain = 0;
+/* MSP Feb. 2017 */
+	} else if (memStr(mp, "<span>Time left:</span>")) {
+		char* hours = myMalloc(12);
+		char* minutes = myMalloc(12);
+		char* seconds = myMalloc(12);	
+		char tmpTimeLeft[255];
+		memset(hours, '\0', sizeof(hours));
+		memset(minutes, '\0', sizeof(minutes));
+		memset(seconds, '\0', sizeof(seconds));
+		memset(tmpTimeLeft, '\0', sizeof(tmpTimeLeft));
+
+		if (memStr(mp, "\"_counter_itemEndDate_hour\"")) {
+	                memChr(mp, '>');
+	                memSkip(mp, 1);
+			strncpy(hours, getNonTag(mp), 4);
+		}
+		else
+			strcpy(hours, "0");
+		if (memStr(mp, "\"_counter_itemEndDate_minute\"")) {
+                        memChr(mp, '>');
+                        memSkip(mp, 1);
+			strncpy(minutes, getNonTag(mp), 2);
+		}
+		else
+			strcpy(seconds, "0");
+		if (memStr(mp, "\"_counter_itemEndDate_second\"")) {
+                        memChr(mp, '>');
+                        memSkip(mp, 1);
+			strncpy(seconds , getNonTag(mp), 2);
+		}
+		else
+			strcpy(seconds, "0");
+		sprintf(tmpTimeLeft, "%s hours %s mins %s secs", hours, minutes, seconds);
+		free(hours); free(minutes); free(seconds);
+		aip->remainRaw = myStrdup(tmpTimeLeft);
+ 		aip->remain = getSeconds(tmpTimeLeft);
+                if (aip->remain < 0) {
+                        bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "remaining time could not be converted (NEW)");
+                        return auctionError(aip, ae_badtime, aip->remainRaw);
+		}
+/***/
 	} else if (memStr(mp, "timeLeft")) {
 		memChr(mp, '>');
 		memSkip(mp, 1);
@@ -415,8 +508,12 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 
 		row = getTableRow(mp);
 		ncolumns = numColumns(row);
+/* MSP Feb. 2017
 		if (ncolumns >= 5) {
 			char *rawHeader = row[1];
+*/
+		if ( (pagetype == phclassic && ncolumns >= 5) || (pagetype == ph201702 && ncolumns >= 3) ) {
+			char *rawHeader = (pagetype == phclassic ? row[1] : row[0]);
 			char *header = getNonTagFromString(rawHeader);
 
 			foundHeader = header &&
@@ -471,14 +568,17 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		break;
 	    }
 
+	case 4: /* MSP Feb. 2017 - New version */
 	case 6:	/* purchase or maybe single auction */
 		/* this case is before 5 because we will fall through if we know
 		 * this is a normal auction.
 		 */
 	    if(pageType != VIEWBIDS)
 	    {
+/* MSP Feb. 2017
 			char *currently = getNonTagFromString(row[2]);
-
+*/
+			char *currently = getNonTagFromString((pagetype == phclassic ? row[2] : row[1]));
 			aip->bids = 0;
 			aip->quantityBid = 0;
 			aip->won = 0;
@@ -486,13 +586,20 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			/* find your purchase, count number of purchases */
 			/* blank, user, price, quantity, date, blank */
 			for (; row; row = getTableRow(mp)) {
+/* MSP Feb. 2017
 				if (numColumns(row) == 6) {
 					int quantity = getIntFromString(row[3]);
+*/
+				if ( (pagetype == phclassic && numColumns(row) == 6) || (pagetype == ph201702 && numColumns(row) == 4) ) {
+					int quantity = getIntFromString((pagetype == phclassic ? row[3] : row[2]));
 					char *bidder;
 
 					++aip->bids;
 					aip->quantityBid += quantity;
+/* MSP Feb. 2017
 					bidder = getNonTagFromString(row[1]);
+*/
+					bidder = getNonTagFromString((pagetype == phclassic ? row[1] : row[0]));
 					if (!strcasecmp(bidder, options.username))
 						aip->won = aip->winning = quantity;
 					free(bidder);
@@ -520,14 +627,26 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			break;
 	    }
 	    /* FALLTHROUGH */
+	case 3: /* MSP Feb. 2017 - New version */
 	case 5: /* single auction with bids */
 	    {
 		/* blank, user, price, date, blank */
+/* MSP Feb. 2017 
 		char *winner = getNonTagFromString(row[1]);
 		char *currently = getNonTagFromString(row[2]);
+*/
+		char *winner = NULL;
+		if (pagetype == phclassic)
+			winner = getNonTagFromString(row[1]);
+		else
+			winner = getNthNonTagFromString(row[0], 1);
+		char *currently = getNonTagFromString((pagetype == phclassic ? row[2] : row[1]));
 
 		if (!strcasecmp(winner, "Member Id:"))
+/* MSP Feb. 2017
 		   winner = getNthNonTagFromString(row[1], 2);
+*/
+		   winner = getNthNonTagFromString((pagetype == phclassic ? row[1] : row[0]), (pagetype == phclassic ? 2 : 1));
 
 		aip->quantityBid = 1;
 
@@ -561,8 +680,16 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		if (aip->bids < 0) {
 			int foundStartPrice = 0;
 			for (aip->bids = 1; !foundStartPrice && (row = getTableRow(mp)); ) {
+/* MSP Feb. 2017
 				if (numColumns(row) == 5) {
 					char *bidder = getNonTagFromString(row[1]);
+*/
+				if ( (pagetype == phclassic && numColumns(row) == 5) || (pagetype == ph201702 && numColumns(row) == 3) ) {
+					char *bidder = NULL;
+					if (pagetype == phclassic)
+						bidder = getNonTagFromString(row[1]);
+					else
+						bidder = getNthNonTagFromString(row[0], 1);
 
 					foundStartPrice = !strcmp(bidder, "Starting Price");
 					if (!foundStartPrice)
@@ -572,7 +699,13 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 				freeTableRow(row);
 			}
 		}
+/* MSP Feb. 2017
 		printLog(stdout, "# of bids: %d\n", aip->bids);
+*/
+		if (pagetype == phclassic)
+			printLog(stdout, "# of bids: %d\n", aip->bids);
+		else
+			printLog(stdout, "# of bids: %d (autom. bids included)\n", aip->bids);
 
 		/* print high bidder */
 		if (strcasecmp(winner, options.username)) {
