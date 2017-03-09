@@ -24,6 +24,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+/* ============== WORK IN PROGRESS - EXPERIMENTAL VERSION ============== */
+
+
 /* for strcasestr  prototype in string.h */
 #define _GNU_SOURCE
 
@@ -61,6 +65,7 @@ typedef struct _headerattr
   char* name;
   int   occurence;
   int   direction;
+  int   mandatory;		/* MSP Mar. 2017 */
   char* value;
 } headerAttr_t, headerVal_t;
 
@@ -420,14 +425,16 @@ static const int SRT=2;
 static const int USID=3;
 static const int RUNID2=4;
 
-static headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, NULL,
-                            "\"password\"", 1, -1, NULL};
+/* MSP Mar. 2017 ff. - mandatory added */
 
-static headerVal_t headerVals[] = {"regUrl", 1, 1, NULL,
-                           "mid", 1, 1, NULL,
-                           "srt", 1, 1, NULL,
-                           "usid", 1, 1, NULL,
-                           "runId2", 1, 1, NULL};
+static headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, 1, NULL,
+                            "\"password\"", 1, -1, 1, NULL};
+
+static headerVal_t headerVals[] = {"regUrl", 1, 1, 1, NULL,
+                           "mid", 1, 1, 1, NULL,
+                           "srt", 1, 1, 1, NULL,
+                           "usid", 1, 1, 1, NULL,
+                           "runId2", 1, 1, 0, NULL};
 
 static int
 signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t searchfor)
@@ -447,7 +454,11 @@ signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t
 	for(i = 0; i < searchdef->occurence; i++) {
 		search = strstr(start, pattern);
 		if( search == NULL )
-			return 1;
+		{
+			searchdef->value = (char *)myMalloc(1);
+			strncpy(searchdef->value, "\0", 1);
+			return searchdef->mandatory;
+		}
 		start = search;
 		start += strlen(pattern);
 	}
@@ -471,7 +482,7 @@ signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t
 		}
 	}
 
-	return 1;
+	return searchdef->mandatory;
 }
 
 static int

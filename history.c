@@ -703,9 +703,23 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		printLog(stdout, "# of bids: %d\n", aip->bids);
 */
 		if (pagetype == phclassic)
+		{
 			printLog(stdout, "# of bids: %d\n", aip->bids);
+		}
 		else
-			printLog(stdout, "# of bids: %d (autom. bids included)\n", aip->bids);
+		{
+			int bids2 = aip->bids;
+			memReset(mp);
+		        if (memStr(mp, "<span>Bids:</span>")) {
+                        	line = getNonTag(mp); /* Bids: */
+                        	line = getNonTag(mp); /* Num. of bids */
+				aip->bids = (int)strtol(line, NULL, 10);
+				printLog(stdout, "# of bids: %d (%d incl. autom. bids)\n", aip->bids, bids2);
+			}
+			else {
+				printLog(stdout, "# of bids: %d (autom. bids included)\n", aip->bids);
+			}
+		}
 
 		/* print high bidder */
 		if (strcasecmp(winner, options.username)) {
