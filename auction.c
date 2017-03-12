@@ -24,10 +24,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-/* ============== WORK IN PROGRESS - EXPERIMENTAL VERSION ============== */
-
-
 /* for strcasestr  prototype in string.h */
 #define _GNU_SOURCE
 
@@ -65,7 +61,7 @@ typedef struct _headerattr
   char* name;
   int   occurence;
   int   direction;
-  int   mandatory;		/* MSP Mar. 2017 */
+  int   mandatory;
   char* value;
 } headerAttr_t, headerVal_t;
 
@@ -407,12 +403,10 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 	return ret;
 }
 
-// MSP Oct. 2016
 static const char LOGIN_1_URL[] = "https://%s/ws/eBayISAPI.dll?SignIn";
 static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?co_partnerId=2&siteid=0&UsingSSL=1";
 static const char LOGIN_DATA[] = "refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1";
 
-// MSP Oct. 2016
 static const char* id="id=\"";
 static const char* id2="value=\"";
 
@@ -424,8 +418,6 @@ static const int MID=1;
 static const int SRT=2;
 static const int USID=3;
 static const int RUNID2=4;
-
-/* MSP Mar. 2017 ff. - mandatory added */
 
 static headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, 1, NULL,
                             "\"password\"", 1, -1, 1, NULL};
@@ -482,6 +474,12 @@ signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t
 		}
 	}
 
+	if( searchdef->value == NULL )
+        {
+            searchdef->value = (char *)myMalloc(1);
+            strncpy(searchdef->value, "\0", 1);
+            return searchdef->mandatory;
+        }
 	return searchdef->mandatory;
 }
 
@@ -545,7 +543,7 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	if (!mp)
 		return httpError(aip);
 
-	// Get all atrributes and values needed (MSP Oct. 2016)
+	// Get all atrributes and values needed
 	for(i = 0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); i++)
 		if(findAttr(mp->memory, mp->size, &headerAttrs[i]))
 			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,
@@ -558,7 +556,6 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	freeMembuf(mp);
 	mp = NULL;
 
-	// MSP Oct. 2016
 	urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) - (1*2);
 	password = getPassword();
 	url = (char *)myMalloc(urlLen);
@@ -613,10 +610,10 @@ ebayLogin(auctionInfo *aip, time_t interval)
 					"*****"
 					);
 
-	// MSP Oct. 2016 - Using POST method instead of GET
+	// Using POST method instead of GET
 	mp = httpPost(url, data, logdata);
 
-	// Free memory (MSP Oct. 2016)
+	// Free memory
 	for(i=0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); free(headerAttrs[i++].value));
 	for(i=0; i < sizeof(headerVals)/sizeof(headerVal_t); free(headerVals[i++].value));
 	free(url);
