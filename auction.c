@@ -543,7 +543,7 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	if (!mp)
 		return httpError(aip);
 
-	// Get all atrributes and values needed
+	// Get all attributes and values needed
 	for(i = 0; i < sizeof(headerAttrs)/sizeof(headerAttr_t); i++)
 		if(findAttr(mp->memory, mp->size, &headerAttrs[i]))
 			bugReport("ebayLogin", __FILE__, __LINE__, aip, mp, optiontab,

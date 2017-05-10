@@ -308,6 +308,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		char* minutes = myMalloc(12);
 		char* seconds = myMalloc(12);	
 		char tmpTimeLeft[255];
+		memset(days, '\0', sizeof(days));
 		memset(hours, '\0', sizeof(hours));
 		memset(minutes, '\0', sizeof(minutes));
 		memset(seconds, '\0', sizeof(seconds));
@@ -403,8 +404,8 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	/* bid history */
 	memReset(mp);
 	aip->bids = -1;
-	if (memStr(mp, "Total Bids:")) {
-		line = getNonTag(mp);	/* Total Bids: */
+	if (memStr(mp, "Bids:")) {
+		line = getNonTag(mp);	/* Bids: */
 		line = getNonTag(mp);	/* number */
 		log(("bids: %d", line));
 		if (line) {
