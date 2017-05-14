@@ -249,6 +249,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		    !strcasecmp(line, "Your maximum bid:") ||
 		    !strcasecmp(line, "price:")) {
 			char *saveptr;
+			const char *priceStr;
 
 			line = getNonTag(mp);
 			if (!line) {
@@ -256,7 +257,8 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 				return auctionError(aip, ae_noprice, NULL);
 			}
 			log(("Currently: %s\n", line));
-			aip->price = atof(priceFixup(line, aip));
+			priceStr = priceFixup(line, aip);
+			aip->price = priceStr ? atof(priceStr) : -1.0;
 			if (aip->price < 0.01) {
 				bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item price could not be converted");
 				return auctionError(aip, ae_convprice, line);
@@ -605,6 +607,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	    {
 		/* blank, user, price, date, blank */
 		char *winner = NULL;
+		const char *priceStr;
 		if (pagetype == phclassic)
 			winner = getNonTagFromString(row[1]);
 		else
@@ -617,7 +620,8 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		aip->quantityBid = 1;
 
 		/* current price */
-		aip->price = atof(priceFixup(currently, aip));
+		priceStr = priceFixup(currently, aip);
+		aip->price = priceStr ? atof(priceStr) : -1.0;
 		if (aip->price < 0.01) {
 			free(winner);
 			free(currently);
