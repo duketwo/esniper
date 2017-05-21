@@ -406,6 +406,12 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	/* bid history */
 	memReset(mp);
 	aip->bids = -1;
+	if (memStr(mp, "ViewBids:")) {	/* Skip over 'ViewBids' */
+		line = 	getNonTag(mp);
+		}
+	else {
+		memReset(mp);
+		}
 	if (memStr(mp, "Bids:")) {
 		line = getNonTag(mp);	/* Bids: */
 		line = getNonTag(mp);	/* number */
