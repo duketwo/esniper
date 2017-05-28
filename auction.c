@@ -167,6 +167,16 @@ getPageInfo(memBuf_t *mp)
 			}
 		}
 	}
+	if (title == NULL) {
+		memReset(mp);
+		while((line = getTag(mp))) {
+		if (!strcasecmp(line, "h1 class=\"page-title__main\"")) {
+                    line = getNonTag(mp);
+                    if (line) title = myStrdup(line);	
+                    break;
+                    }
+		} 
+	}
 	if (needPageName && title) {
 	   log(("using title as page name: %s", title));
 	   p.pageName = title;

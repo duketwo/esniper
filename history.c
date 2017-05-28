@@ -107,11 +107,12 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		(pp->pageName && !strncmp(pp->pageName, "Security Measure", 16)))
 		return auctionError(aip, ae_captcha, NULL);
 	if (pp->pageName && ( !strncmp(pp->pageName, "PageViewBids", 12) ||
-			      !strncmp(pp->pageName, "eBay Item Bid History", 21) )) {	
+                              !strncmp(pp->pageName, "eBay Item Bid History", 21) ||    
+                              !strncmp(pp->pageName, "Bid history", 11) )) {    /* Version newer than 2.33 */   
 		char *tmpPagename = myStrdup(pp->pageName);
 		char *token;
 
-		if (!strncmp(pp->pageName, "eBay Item Bid History", 21))
+		if (!strncmp(pp->pageName, "eBay Item Bid History", 21) || !strncmp(pp->pageName, "Bid history", 11) )
 			pagetype = ph201702;
 		else
 			pagetype = phclassic;
@@ -310,6 +311,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		char* minutes = myMalloc(12);
 		char* seconds = myMalloc(12);	
 		char tmpTimeLeft[255];
+
 		memset(days, '\0', sizeof(days));
 		memset(hours, '\0', sizeof(hours));
 		memset(minutes, '\0', sizeof(minutes));
