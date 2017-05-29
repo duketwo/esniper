@@ -140,7 +140,8 @@ getPageInfo(memBuf_t *mp)
 	while (needMore && (line = getTag(mp))) {
 		char *tmp;
 
-		if (!strcasecmp(line, "title")) {
+		if (!strcasecmp(line, "title") ||
+                    !strcasecmp(line, "h1 class=\"page-title__main\"")) {  /* Version newer than 2.33.0 */
 		    line = getNonTag(mp);
 		    if (line) title = myStrdup(line);
 		    continue;
@@ -166,16 +167,6 @@ getPageInfo(memBuf_t *mp)
 				p.srcId = myStrdup(tmp);
 			}
 		}
-	}
-	if (title == NULL) {
-		memReset(mp);
-		while((line = getTag(mp))) {
-		if (!strcasecmp(line, "h1 class=\"page-title__main\"")) {
-                    line = getNonTag(mp);
-                    if (line) title = myStrdup(line);	
-                    break;
-                    }
-		} 
 	}
 	if (needPageName && title) {
 	   log(("using title as page name: %s", title));
