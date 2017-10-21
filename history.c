@@ -306,10 +306,10 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		aip->remainRaw = myStrdup("--");
 		aip->remain = 0;
 	} else if (memStr(mp, "<span>Time left:</span>")) {
-		char* days = myMalloc(12);
-		char* hours = myMalloc(12);
-		char* minutes = myMalloc(12);
-		char* seconds = myMalloc(12);	
+		char days[12];
+		char hours[12];
+		char minutes[12];
+		char seconds[12];
 		char tmpTimeLeft[255];
 
 		memset(days, '\0', sizeof(days));
@@ -348,7 +348,6 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			strcpy(seconds, "0");
 		sprintf(tmpTimeLeft, "%s days %s hours %s mins %s secs",
 			days, hours, minutes, seconds);
-		free(days); free(hours); free(minutes); free(seconds);
 		aip->remainRaw = myStrdup(tmpTimeLeft);
  		aip->remain = getSeconds(tmpTimeLeft);
                 if (aip->remain < 0) {
