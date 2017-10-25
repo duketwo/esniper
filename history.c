@@ -169,7 +169,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "no item number");
 			return auctionError(aip, ae_baditem, NULL);
 		}
-	} else if (memStr(mp, "<span>Item number:</span>")) { 
+	} else if (memStr(mp, ">Item number:</span>")) { 
                 line = getNonTag(mp);   /* Item number: */
                 line = getNonTag(mp);   /* number */
 		if (!line) {
@@ -208,7 +208,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			return auctionError(aip, ae_baditem, NULL);
 		}
 	/* Active auction */
-        } else if (memStr(mp, "<span>Item info</span>")) {
+        } else if (memStr(mp, ">Item info</span>")) {
                 line = getNonTag(mp);   /* Item title: */
                 line = getNonTag(mp);   /* title */
                 if (!line) {
@@ -305,7 +305,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		free(aip->remainRaw);
 		aip->remainRaw = myStrdup("--");
 		aip->remain = 0;
-	} else if (memStr(mp, "<span>Time left:</span>")) {
+	} else if (memStr(mp, ">Time left:</span>")) {
 		char days[12];
 		char hours[12];
 		char minutes[12];
