@@ -338,7 +338,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			strncpy(minutes, getNonTag(mp), 2);
 		}
 		else
-			strcpy(seconds, "0");
+			strcpy(minutes, "0");
 		if (memStr(mp, "\"_counter_itemEndDate_second\"")) {
                         memChr(mp, '>');
                         memSkip(mp, 1);
@@ -346,8 +346,18 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		}
 		else
 			strcpy(seconds, "0");
-		sprintf(tmpTimeLeft, "%s days %s hours %s mins %s secs",
-			days, hours, minutes, seconds);
+
+		/* Scan again, if nothing found (here the old format appears again) */
+		if ( !strcmp(days, "0") && !strcmp(hours, "0") && !strcmp(minutes, "0") && !strcmp(seconds, "0") ) {
+			memReset(mp);
+			if (memStr(mp, ">Time left:</span>")) {
+			   getNonTag(mp); /* Skip */
+			   strncpy(tmpTimeLeft, getNonTag(mp), 128);
+			}
+		}	
+		else
+			sprintf(tmpTimeLeft, "%s days %s hours %s mins %s secs",
+						days, hours, minutes, seconds);
 		aip->remainRaw = myStrdup(tmpTimeLeft);
  		aip->remain = getSeconds(tmpTimeLeft);
                 if (aip->remain < 0) {
