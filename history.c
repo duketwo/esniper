@@ -354,6 +354,10 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			   getNonTag(mp); /* Skip */
 			   strncpy(tmpTimeLeft, getNonTag(mp), 128);
 			}
+			/* Nothing found at this point - assume auction has finished */
+			if ( !strncmp(tmpTimeLeft, "Duration:", 9) ) {
+			   strcpy(tmpTimeLeft, "0 days 0 hours 0 mins 0 secs");
+			}
 		}	
 		else
 			sprintf(tmpTimeLeft, "%s days %s hours %s mins %s secs",
