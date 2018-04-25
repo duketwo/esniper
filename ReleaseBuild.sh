@@ -62,8 +62,8 @@ read line
 echo Rebuilding automake files with current version number.  CVS will be called four
 echo times. You will see some "lost" errors, in the last CVS command.  That is OK.
 
-perl -i.bak -p -e 's/(AC_INIT\(esniper),.*\)/\1,'${CURRENT}')/' configure.in
-git add configure.in
+perl -i.bak -p -e 's/(AC_INIT\(esniper),.*\)/\1,'${CURRENT}')/' configure.ac
+git add configure.ac
 git add version.txt ReleaseNote README index.html
 git commit -m "$CURRENT new version number"
 
