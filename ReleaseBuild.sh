@@ -27,7 +27,7 @@ fi
 # FIXME check for local commits not pushed yet.
 
 echo "ATTENTION! If you have not updated, committed and pushed ChangeLog, "
-echo "please quit this script by pressing CTRL+C and do it now!"
+echo "   please quit this script by pressing CTRL+C and do it now!"
 echo "Press enter to continue."
 read line
 
@@ -49,23 +49,31 @@ awk 'BEGIN {empty=0;stop=0;buffer="";}
 }' ChangeLog > ReleaseNote
 cp ReleaseNote README
 
-echo Please check the contents of the ReleaseNote file. It should contain
-echo all changes for the current version but not the history as in ChangeLog.
+echo "Please check the contents of the ReleaseNote file."
+echo "   It should contain all changes for the current version ${CURRENT}"
+echo "   but not the history as in ChangeLog."
 echo "--- start ---"
 cat ReleaseNote
 echo "---  end  ---"
 echo "If the ReleaseNote file is not OK or if you are not sure, press CTRL+C"
-echo "to stop this script now and fix ChangeLog or this script."
+echo "   to stop this script now and fix ChangeLog or this script."
 echo "Press enter to continue."
 read line
 
-echo Rebuilding automake files with current version number.  CVS will be called four
-echo times. You will see some "lost" errors, in the last CVS command.  That is OK.
+echo "Rebuilding automake files with current version number."
 
 perl -i.bak -p -e 's/(AC_INIT\(esniper),.*\)/\1,'${CURRENT}')/' configure.ac
 git add configure.ac
+
+echo Modifying version.txt and index.html.
+
+echo $CURRENT >version.txt
+
+# The perl command did not work. Replaced by download link to latest version.
+#perl -i.bak -p -e 's/esniper-.*[.]tgz/'${CURRENT}'.tgz/' index.html
+
 git add version.txt ReleaseNote README index.html
-git commit -m "$CURRENT new version number"
+git commit -m "$CURRENT new version number and release information"
 
 make
 sleep 2
@@ -76,13 +84,6 @@ touch configure Makefile.in
 git add --force configure Makefile.in
 git commit --allow-empty -m "$CURRENT re-generated automake files"
 
-echo Modifying version.txt and index.html, then checkin with CVS.
-
-echo $CURRENT >version.txt
-
-# The perl command did not work. Replaced by download link to latest version.
-#perl -i.bak -p -e 's/esniper-.*[.]tgz/'${CURRENT}'.tgz/' index.html
-
 echo Tagging source.
 
 if ! git tag -a -m $CURRENT $CURRTAG
@@ -92,7 +93,7 @@ then
 fi
 
 echo Pushing all changes to upstream. Hopefully no conflicts occur.
-echo git push --tags || exit
+echo git push --tags || exit 5
 
 echo Creating source tar file ${CURRFILE}.tgz
 
