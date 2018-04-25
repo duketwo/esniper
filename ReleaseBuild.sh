@@ -75,7 +75,7 @@ echo $CURRENT >version.txt
 git add version.txt ReleaseNote README index.html
 git commit -m "$CURRENT new version number and release information"
 
-make
+make || exit 4
 sleep 2
 touch aclocal.m4 Makefile.am
 git add --force aclocal.m4 Makefile.am
@@ -89,11 +89,11 @@ echo Tagging source.
 if ! git tag -a -m $CURRENT $CURRTAG
 then
    echo "ERROR: adding tag $CURRTAG failed" >&2
-   exit 4
+   exit 5
 fi
 
 echo Pushing all changes to upstream. Hopefully no conflicts occur.
-echo git push --tags || exit 5
+echo git push --tags || exit 6
 
 echo Creating source tar file ${CURRFILE}.tgz
 
