@@ -9,6 +9,6 @@ esniper_SOURCES = auction.c auctionfile.c auctioninfo.c buffer.c esniper.c \
 
 man_MANS = esniper.1
 
-EXTRA_DIST = getopt.c sample_auction.txt sample_config.txt COPYRIGHT \
+EXTRA_DIST = sample_auction.txt sample_config.txt COPYRIGHT \
 		ReleaseBuild  esniper.dsp esniper.dsw esniper.mak esniper_man.html \
 		$(man_MANS)
