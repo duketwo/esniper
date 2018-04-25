@@ -63,19 +63,18 @@ echo Rebuilding automake files with current version number.  CVS will be called 
 echo times. You will see some "lost" errors, in the last CVS command.  That is OK.
 
 perl -i.bak -p -e 's/(AM_INIT_AUTOMAKE\(esniper),.*\)/\1,'${CURRENT}')/' configure.in
-make
 git add configure.in
-git commit -m "$CURRENT new version number in configure.in"
+git add version.txt ReleaseNote README index.html
+git commit -m "$CURRENT new version number"
+
+make
 sleep 2
 touch aclocal.m4 Makefile.am
 git add --force aclocal.m4 Makefile.am
-git commit --allow-empty -m "$CURRENT re-generated aclocal.m4 Makefile.am"
 sleep 2
 touch configure Makefile.in
 git add --force configure Makefile.in
-git commit --allow-empty -m "$CURRENT re-generated configure Makefile.in"
-rm configure.in aclocal.m4 Makefile.am configure Makefile.in
-git checkout -f
+git commit --allow-empty -m "$CURRENT re-generated automake files"
 
 echo Modifying version.txt and index.html, then checkin with CVS.
 
@@ -83,9 +82,6 @@ echo $CURRENT >version.txt
 
 # The perl command did not work. Replaced by download link to latest version.
 #perl -i.bak -p -e 's/esniper-.*[.]tgz/'${CURRENT}'.tgz/' index.html
-
-git add version.txt ReleaseNote README index.html
-git commit -m "$CURRENT updated version.txt ReleaseNote README index.html"
 
 echo Tagging source.
 
