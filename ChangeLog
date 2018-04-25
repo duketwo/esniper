@@ -1,3 +1,10 @@
+2018-04-25
+	* 2.34.0 released
+	* adapt automake files to newer syntax
+	* adapt release script to Git repo
+	* bug fixes for #746, #737, #736, #733, #725, #724, #723,
+	* #721, #720, #716
+
 2017-03-13
 	* 2.33.0 released
 	* Fix for bugs #715, #716: handle new bid history page
