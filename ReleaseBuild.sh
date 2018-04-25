@@ -62,7 +62,7 @@ read line
 echo Rebuilding automake files with current version number.  CVS will be called four
 echo times. You will see some "lost" errors, in the last CVS command.  That is OK.
 
-perl -i.bak -p -e 's/(AM_INIT_AUTOMAKE\(esniper),.*\)/\1,'${CURRENT}')/' configure.in
+perl -i.bak -p -e 's/(AC_INIT\(esniper),.*\)/\1,'${CURRENT}')/' configure.in
 git add configure.in
 git add version.txt ReleaseNote README index.html
 git commit -m "$CURRENT new version number"
@@ -109,7 +109,7 @@ cp html.c html.h $CURRFILE
 cp http.c http.h $CURRFILE
 cp options.c options.h $CURRFILE
 cp util.c util.h $CURRFILE
-cp aclocal.m4 configure configure.in depcomp $CURRFILE
+cp aclocal.m4 configure configure.ac depcomp $CURRFILE
 cp install-sh Makefile.am Makefile.in missing $CURRFILE
 cp AUTHORS COPYING INSTALL NEWS README TODO $CURRFILE
 cp ChangeLog $CURRFILE
