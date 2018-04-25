@@ -89,12 +89,18 @@ git commit -m "$CURRENT updated version.txt ReleaseNote README index.html"
 
 echo Tagging source.
 
-git tag -a -m $CURRENT $CURRTAG
+if ! git tag -a -m $CURRENT $CURRTAG
+then
+   echo "ERROR: adding tag $CURRTAG failed" >&2
+   exit 4
+fi
 
 echo Pushing all changes to upstream. Hopefully no conflicts occur.
 echo git push --tags || exit
 
 echo Creating source tar file ${CURRFILE}.tgz
+
+rm -rf ./$CURRFILE
 
 mkdir $CURRFILE $CURRFILE/frontends
 cp auction.c auction.h $CURRFILE
