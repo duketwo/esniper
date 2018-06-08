@@ -14,3 +14,7 @@ Languages (German, French, ...)
   an auction.c for each site supported, or create a meta-language describing
   how to parse each page.  Plus eBay likes to change their output without
   notice!
+
+Release/distribution
+Try to use "make dist" from Autotools instead of hand crafted scripting
+in ReleaseBuild.sh for tarball creation.

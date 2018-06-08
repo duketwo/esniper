@@ -111,7 +111,7 @@ cp http.c http.h $CURRFILE
 cp options.c options.h $CURRFILE
 cp util.c util.h $CURRFILE
 cp aclocal.m4 configure configure.ac depcomp $CURRFILE
-cp install-sh Makefile.am Makefile.in missing $CURRFILE
+cp install-sh Makefile.am Makefile.in compile missing $CURRFILE
 cp AUTHORS COPYING INSTALL NEWS README TODO $CURRFILE
 cp ChangeLog $CURRFILE
 cp esniper.1 esniper_man.html misc.mk $CURRFILE
