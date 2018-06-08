@@ -420,7 +420,7 @@ static const int SRT=2;
 static const int USID=3;
 static const int RUNID2=4;
 
-static headerAttr_t headerAttrs[] = {"<label for=\"userid\">", 1, 1, 1, NULL,
+static headerAttr_t headerAttrs[] = {"<label for=\"userid\"", 1, 1, 1, NULL,
                             "\"password\"", 1, -1, 1, NULL};
 
 static headerVal_t headerVals[] = {"regUrl", 1, 1, 1, NULL,

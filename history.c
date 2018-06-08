@@ -95,6 +95,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 	char **row = NULL;
 	int ret = 0;		/* 0 = OK, 1 = failed */
 	int foundHeader = 0;	/* found bid history table header */
+	int foundTitle = 0;	/* found auction title */
 	int pageType = 0;
 	int auctionState = 0;
 	int auctionResult = 0;
@@ -169,7 +170,7 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "no item number");
 			return auctionError(aip, ae_baditem, NULL);
 		}
-	} else if (memStr(mp, ">Item number:</span>")) { 
+	} else if (memStr(mp, ">Item number:<")) { 
                 line = getNonTag(mp);   /* Item number: */
                 line = getNonTag(mp);   /* number */
 		if (!line) {
@@ -201,12 +202,22 @@ parseBidHistoryInternal(pageInfo_t *pp, memBuf_t *mp, auctionInfo *aip, time_t s
 		memChr(mp, '>');
 		memSkip(mp, 1);
 		line = getNonTag(mp);	/* Item title: */
-		line = getNonTag(mp);	/* title */
-		if (!line) {
+		if (!strcmp("\"itemTitle\"", line) || !strcmp("\"BHitemTitle\"", line) || !strcmp("\"BHitemDesc\"", line))
+		{
+		   line = getNonTag(mp);	/* title */
+		   if (!line) {
 			log(("parseBidHistory(): No item title"));
 			bugReport("parseBidHistory", __FILE__, __LINE__, aip, mp, optiontab, "item title not found");
 			return auctionError(aip, ae_baditem, NULL);
+		   }
+		   foundTitle = 1;
 		}
+		else
+		{
+		   memReset(mp);
+		}
+	}
+	if (foundTitle) { /* Do nothing here - all done */
 	/* Active auction */
         } else if (memStr(mp, ">Item info</span>")) {
                 line = getNonTag(mp);   /* Item title: */
