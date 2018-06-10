@@ -406,7 +406,7 @@ parsePreBid(memBuf_t *mp, auctionInfo *aip)
 
 static const char LOGIN_1_URL[] = "https://%s/ws/eBayISAPI.dll?SignIn";
 static const char LOGIN_2_URL[] = "https://%s/ws/eBayISAPI.dll?co_partnerId=2&siteid=0&UsingSSL=1";
-static const char LOGIN_DATA[] = "refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1";
+static const char LOGIN_DATA[] = "rqid=%s&lkdhjebhsjdhejdshdjchquwekguid=%s&refId=&regUrl=%s&MfcISAPICommand=SignInWelcome&bhid=DEF_CI&UsingSSL=1&inputversion=2&lse=false&lsv=&mid=%s&kgver=1&kgupg=1&kgstate=&omid=&hmid=&rhr=f&srt=%s&siteid=0&co_partnerId=2&ru=&pp=&pa1=&pa2=&pa3=&i1=-1&pageType=-1&rtmData=&usid=%s&afbpmName=sess1&kgct=&userid_otp=&sgnBt=Continue&otp=&keepMeSignInOption3=1&userid=%s&%s=%s&runId2=%s&%s=%s&pass=%s&keepMeSignInOption2=1&keepMeSignInOption=1&htmid=&kdata=";
 
 static const char* id="id=\"";
 static const char* id2="value=\"";
@@ -414,16 +414,20 @@ static const char* id2="value=\"";
 static const int USER_NUM=0;
 static const int PASS_NUM=1;
 
-static const int REGURL=0;
-static const int MID=1;
-static const int SRT=2;
-static const int USID=3;
-static const int RUNID2=4;
+static const int RQID=0;
+static const int GUID=1;
+static const int REGURL=2;
+static const int MID=3;
+static const int SRT=4;
+static const int USID=5;
+static const int RUNID2=6;
 
 static headerAttr_t headerAttrs[] = {"<label for=\"userid\"", 1, 1, 1, NULL,
                             "\"password\"", 1, -1, 1, NULL};
 
-static headerVal_t headerVals[] = {"regUrl", 1, 1, 1, NULL,
+static headerVal_t headerVals[] = {"rqid", 1, 1, 1, NULL,
+                           "lkdhjebhsjdhejdshdjchquwekguid", 1, 1, 1, NULL,
+                           "regUrl", 1, 1, 0, NULL,
                            "mid", 1, 1, 1, NULL,
                            "srt", 1, 1, 1, NULL,
                            "usid", 1, 1, 1, NULL,
@@ -463,9 +467,7 @@ signinFormSearch(char* src, size_t srcLen, headerAttr_t* searchdef, searchType_t
                                        (searchfor == st_attribute ? strlen(id) : strlen(id2))) ) {
 			search += (searchfor == st_attribute ? strlen(id) : strlen(id2));
 			memset(res, '\0', sizeof(res));
-			for(i = 0;
-				((searchfor == st_value) || isdigit(*search)) && (*search) != '"' && i < sizeof(res);
-				res[i++] = *search++);
+			for(i = 0; (*search) != '"' && i < sizeof(res); res[i++] = *search++);
 			searchdef->value = (char *)myMalloc(strlen(res) + 1);
 			strncpy(searchdef->value, (char*) &res, strlen(res) + 1);
 			if (options.debug)
@@ -536,11 +538,12 @@ ebayLogin(auctionInfo *aip, time_t interval)
 	if (initCurlStuff())
 		return auctionError(aip, ae_unknown, NULL);
 
-	urlLen = sizeof(LOGIN_1_URL) + strlen(options.loginHost) - (1*2);
-	url = (char *)myMalloc(urlLen);
-	sprintf(url, LOGIN_1_URL, options.loginHost);
-	mp = httpGet(url, NULL);
-	free(url);
+        urlLen = sizeof(LOGIN_2_URL) + strlen(options.loginHost) - (1*2);
+        url = (char *)myMalloc(urlLen);
+        sprintf(url, LOGIN_2_URL, options.loginHost);
+        mp = httpPost(url, NULL, NULL); /* Send fake login in order to get wanted html data */
+        free(url);
+
 	if (!mp)
 		return httpError(aip);
 
@@ -566,6 +569,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
                                       + strlen(headerAttrs[PASS_NUM].value)
                                       + strlen(options.usernameEscape) * 2
                                       + strlen(password) * 2
+                                      + strlen(headerVals[RQID].value)
+                                      + strlen(headerVals[GUID].value)
                                       + strlen(headerVals[REGURL].value)
                                       + strlen(headerVals[MID].value)
                                       + strlen(headerVals[SRT].value)
@@ -578,6 +583,8 @@ ebayLogin(auctionInfo *aip, time_t interval)
                                       + strlen(headerAttrs[PASS_NUM].value) 
                                       + strlen(options.usernameEscape) * 2
                                       + 5 * 2
+                                      + strlen(headerVals[RQID].value)
+                                      + strlen(headerVals[GUID].value)
                                       + strlen(headerVals[REGURL].value)
                                       + strlen(headerVals[MID].value)
                                       + strlen(headerVals[SRT].value)
@@ -585,7 +592,9 @@ ebayLogin(auctionInfo *aip, time_t interval)
                                       + strlen(headerVals[RUNID2].value)
 				      - (11*2)
                                       );
-	sprintf(data, LOGIN_DATA,	headerVals[REGURL].value,
+	sprintf(data, LOGIN_DATA,	headerVals[RQID].value,
+					headerVals[GUID].value,
+					headerVals[REGURL].value,
 					headerVals[MID].value,
 					headerVals[SRT].value,
 					headerVals[USID].value,
@@ -598,7 +607,9 @@ ebayLogin(auctionInfo *aip, time_t interval)
 					password
 					);
 	freePassword(password);
-	sprintf(logdata, LOGIN_DATA,	headerVals[REGURL].value,
+	sprintf(logdata, LOGIN_DATA,	headerVals[RQID].value,
+					headerVals[GUID].value,
+					headerVals[REGURL].value,
 					headerVals[MID].value,
 					headerVals[SRT].value,
 					headerVals[USID].value,
