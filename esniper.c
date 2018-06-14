@@ -60,7 +60,7 @@ static const char DEFAULT_CONF_FILE[] = ".esniper";
 #endif
 
 /* minimum bid time, in seconds before end of auction */
-#define MIN_BIDTIME 5
+#define MIN_BIDTIME 1
 /* default bid time */
 #define DEFAULT_BIDTIME 10
 
